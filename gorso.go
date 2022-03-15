@@ -6,8 +6,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
-
-	"github.com/lf-group/gorso/rsoerror"
 )
 
 //
@@ -29,7 +27,7 @@ func (c *Client) GetToken(code string) (*CodeResponse, error) {
 
 	req, err := http.NewRequest(http.MethodPost, "https://auth.riotgames.com/authorize", nil)
 	if err != nil {
-		return nil, rsoerror.New(rsoerror.System, err)
+		return nil, errorCreate(ErrSystem, err)
 	}
 
 	c.addAuthHeader(req)
@@ -37,17 +35,17 @@ func (c *Client) GetToken(code string) (*CodeResponse, error) {
 
 	req.Form.Add("grant_type", "authorization_code")
 	req.Form.Add("code", code)
-	req.Form.Add("redirect_uri", c.ClientRedirect)
+	req.Form.Add("redirect_uri", c.Redirect)
 
 	res, err := client.Do(req)
 	if err != nil {
-		return nil, rsoerror.New(rsoerror.System, err)
+		return nil, errorCreate(ErrSystem, err)
 	}
 	defer res.Body.Close()
 
 	body, err := ioutil.ReadAll(res.Body)
 	if err != nil {
-		return nil, rsoerror.New(rsoerror.System, err)
+		return nil, errorCreate(ErrSystem, err)
 	}
 
 	if res.StatusCode != http.StatusOK {
@@ -58,7 +56,7 @@ func (c *Client) GetToken(code string) (*CodeResponse, error) {
 	data := CodeResponse{}
 	err = json.Unmarshal(body, &data)
 	if err != nil {
-		return nil, rsoerror.New(rsoerror.System, err)
+		return nil, errorCreate(ErrSystem, err)
 	}
 
 	return &data, nil
@@ -70,7 +68,7 @@ func (c *Client) RefreshToken(refreshToken string) (*CodeResponse, error) {
 
 	req, err := http.NewRequest(http.MethodPost, "https://auth.riotgames.com/authorize", nil)
 	if err != nil {
-		return nil, rsoerror.New(rsoerror.System, err)
+		return nil, errorCreate(ErrSystem, err)
 	}
 
 	c.addAuthHeader(req)
@@ -82,13 +80,13 @@ func (c *Client) RefreshToken(refreshToken string) (*CodeResponse, error) {
 
 	res, err := client.Do(req)
 	if err != nil {
-		return nil, rsoerror.New(rsoerror.System, err)
+		return nil, errorCreate(ErrSystem, err)
 	}
 	defer res.Body.Close()
 
 	body, err := ioutil.ReadAll(res.Body)
 	if err != nil {
-		return nil, rsoerror.New(rsoerror.System, err)
+		return nil, errorCreate(ErrSystem, err)
 	}
 
 	if res.StatusCode != http.StatusOK {
@@ -99,7 +97,7 @@ func (c *Client) RefreshToken(refreshToken string) (*CodeResponse, error) {
 	data := CodeResponse{}
 	err = json.Unmarshal(body, &data)
 	if err != nil {
-		return nil, rsoerror.New(rsoerror.System, err)
+		return nil, errorCreate(ErrSystem, err)
 	}
 
 	return &data, nil
@@ -116,7 +114,7 @@ func ExampleAuthUser() {
 
 	data, err := client.GetToken(code)
 	if err != nil {
-		if errors.Is(err, rsoerror.ErrSystem) {
+		if errors.Is(err, ErrSystem) {
 			panic(err)
 		}
 

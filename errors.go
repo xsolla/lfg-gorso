@@ -1,4 +1,4 @@
-package rsoerror
+package gorso
 
 import (
 	"errors"
@@ -11,6 +11,6 @@ var (
 	ErrSystem Code = errors.New("system error")
 )
 
-func New(code Code, err error) error {
+func errorCreate(code Code, err error) error {
 	return fmt.Errorf(`%e — %e`, ErrSystem, err)
 }
