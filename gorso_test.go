@@ -3,20 +3,20 @@ package gorso
 import (
 	"encoding/json"
 	"fmt"
-	"os"
 	"testing"
 )
 
-func TestAccessTokenGet(t *testing.T) {
-	code := "INVALID_CODE"
+const CLIENT_ID = "lfgroup"
+const REDIRECT = "https://beta.lf.group/auth/riot"
+const SECRET = ""
 
-	clientID := os.Getenv("CLIENT_ID")
-	clientSecret := os.Getenv("CLIENT_SECRET")
+func TestGetToken(t *testing.T) {
+	code := ""
 
 	client := Client{
-		ID:       clientID,
-		Secret:   clientSecret,
-		Redirect: "",
+		ID:       CLIENT_ID,
+		Secret:   SECRET,
+		Redirect: REDIRECT,
 	}
 
 	response, err := client.GetToken(code)
@@ -26,5 +26,54 @@ func TestAccessTokenGet(t *testing.T) {
 	}
 
 	str, _ := json.MarshalIndent(response, "", "\t")
-	fmt.Println(str)
+	fmt.Println(string(str))
+}
+
+func TestRefreshToken(t *testing.T) {
+	code := ""
+
+	client := Client{
+		ID:       CLIENT_ID,
+		Secret:   SECRET,
+		Redirect: REDIRECT,
+	}
+
+	response, err := client.RefreshToken(code)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	str, _ := json.MarshalIndent(response, "", "\t")
+	fmt.Println(string(str))
+}
+
+func TestGetUserInfo(t *testing.T) {
+	acessToken := ""
+
+	client := Client{}
+
+	response, err := client.GetUserInfo(acessToken)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	str, _ := json.MarshalIndent(response, "", "\t")
+	fmt.Println(string(str))
+}
+
+func TestGetAccount(t *testing.T) {
+	acessToken := ""
+
+	client := Client{}
+
+	response, err := client.GetAccount(acessToken)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	str, _ := json.MarshalIndent(response, "", "\t")
+	fmt.Println(string(str))
 }
