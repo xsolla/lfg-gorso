@@ -27,8 +27,11 @@ package gorso
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"net/http"
+	"net/url"
+	"strings"
 )
 
 // CodeResponse contains tokens to access user private data
@@ -55,17 +58,18 @@ type CodeResponse struct {
 func (c *Client) GetToken(code string) (*CodeResponse, error) {
 	client := http.Client{Timeout: c.getTimeout()}
 
-	req, err := http.NewRequest(http.MethodPost, "https://auth.riotgames.com/authorize", nil)
+	formData := url.Values{}
+	formData.Add("grant_type", "authorization_code")
+	formData.Add("code", code)
+	formData.Add("redirect_uri", c.Redirect)
+
+	req, err := http.NewRequest(http.MethodPost, "https://auth.riotgames.com/token", strings.NewReader(formData.Encode()))
 	if err != nil {
 		return nil, errorCreate(ErrSystem, err)
 	}
 
 	c.addAuthHeader(req)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-
-	req.Form.Add("grant_type", "authorization_code")
-	req.Form.Add("code", code)
-	req.Form.Add("redirect_uri", c.Redirect)
 
 	res, err := client.Do(req)
 	if err != nil {
@@ -112,21 +116,21 @@ type RefreshResponse struct {
 	AccessToken string `json:"access_token"`
 }
 
-// GetToken returns a new refresh token based on a provided refresh token
+// RefreshToken returns a new refresh token based on a provided refresh token
 func (c *Client) RefreshToken(refreshToken string) (*CodeResponse, error) {
 	client := http.Client{Timeout: c.getTimeout()}
 
-	req, err := http.NewRequest(http.MethodPost, "https://auth.riotgames.com/authorize", nil)
+	formData := url.Values{}
+	formData.Add("grant_type", "refresh_token")
+	formData.Add("refresh_token", refreshToken)
+
+	req, err := http.NewRequest(http.MethodPost, "https://auth.riotgames.com/token", strings.NewReader(formData.Encode()))
 	if err != nil {
 		return nil, errorCreate(ErrSystem, err)
 	}
 
 	c.addAuthHeader(req)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-
-	req.Form.Add("grant_type", "refresh_token")
-	req.Form.Add("refresh_token", refreshToken)
-	req.Form.Add("redirect_uri", c.Redirect)
 
 	res, err := client.Do(req)
 	if err != nil {
@@ -145,6 +149,91 @@ func (c *Client) RefreshToken(refreshToken string) (*CodeResponse, error) {
 	}
 
 	data := CodeResponse{}
+	err = json.Unmarshal(body, &data)
+	if err != nil {
+		return nil, errorCreate(ErrSystem, err)
+	}
+
+	return &data, nil
+}
+
+type UserInfoResponse struct {
+	Sub string `json:"sub"`
+	JTI string `json:"cpid"`
+}
+
+// GetUserInfo returns user info based on a provided token
+func (c *Client) GetUserInfo(token string) (*UserInfoResponse, error) {
+	client := http.Client{Timeout: c.getTimeout()}
+
+	req, err := http.NewRequest(http.MethodGet, "https://auth.riotgames.com/userinfo", nil)
+	if err != nil {
+		return nil, errorCreate(ErrSystem, err)
+	}
+
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+	res, err := client.Do(req)
+	if err != nil {
+		return nil, errorCreate(ErrSystem, err)
+	}
+	defer res.Body.Close()
+
+	body, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		return nil, errorCreate(ErrSystem, err)
+	}
+
+	if res.StatusCode != http.StatusOK {
+		// TODO: handle errors
+		return nil, errorCreate(ErrUnhandled, errors.New("status code not 200"))
+	}
+
+	data := UserInfoResponse{}
+	err = json.Unmarshal(body, &data)
+	if err != nil {
+		return nil, errorCreate(ErrSystem, err)
+	}
+
+	return &data, nil
+}
+
+type AccountResponse struct {
+	PUUID    string `json:"puuid"`
+	GameName string `json:"gameName"`
+	TagLine  string `json:"tagLine"`
+}
+
+// GetUserInfo returns user info based on a provided token
+func (c *Client) GetAccount(token string) (*AccountResponse, error) {
+	client := http.Client{Timeout: c.getTimeout()}
+
+	req, err := http.NewRequest(http.MethodGet, "https://europe.api.riotgames.com/riot/account/v1/accounts/me", nil)
+	if err != nil {
+		return nil, errorCreate(ErrSystem, err)
+	}
+
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+	res, err := client.Do(req)
+	if err != nil {
+		return nil, errorCreate(ErrSystem, err)
+	}
+	defer res.Body.Close()
+
+	body, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		return nil, errorCreate(ErrSystem, err)
+	}
+
+	if res.StatusCode != http.StatusOK {
+		// TODO: handle errors
+		return nil, errorCreate(ErrUnhandled, errors.New("status code not 200"))
+	}
+
+	data := AccountResponse{}
 	err = json.Unmarshal(body, &data)
 	if err != nil {
 		return nil, errorCreate(ErrSystem, err)
