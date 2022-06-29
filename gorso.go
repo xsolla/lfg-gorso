@@ -26,20 +26,20 @@ package gorso
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 )
 
 // CodeResponse contains tokens to access user private data
 type CodeResponse struct {
 	// A predefined data scope
 	Scope Scope `json:"scope"`
-	// Life span of the access token in ms
-	ExpiresIn int `json:"expires_in"` // TODO: time.Duration
+	// Life span of the access token in sec
+	ExpiresIn time.Duration `json:"expires_in"`
 	// Method of authorization token provides
 	TokenType TokenType `json:"token_type"`
 	// Issued for the purpose of obtaining new access tokens when an older one expires
@@ -52,6 +52,8 @@ type CodeResponse struct {
 	// Undecryptable JWT Token
 	// Used for scoped authentication of a client and player to a resource
 	AccessToken string `json:"access_token"`
+
+	requestTime time.Time
 }
 
 // GetToken returns access&refresh tokens based on a provided code
@@ -65,35 +67,41 @@ func (c *Client) GetToken(code string) (*CodeResponse, error) {
 
 	req, err := http.NewRequest(http.MethodPost, "https://auth.riotgames.com/token", strings.NewReader(formData.Encode()))
 	if err != nil {
-		return nil, errorCreate(ErrSystem, err)
+		return nil, NewErrorSystem("http_error", err)
 	}
 
 	c.addAuthHeader(req)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
 	res, err := client.Do(req)
+	requestTime := time.Now()
 	if err != nil {
-		return nil, errorCreate(ErrSystem, err)
+		return nil, NewErrorSystem("http_err", err)
 	}
 	defer res.Body.Close()
 
 	body, err := ioutil.ReadAll(res.Body)
 	if err != nil {
-		return nil, errorCreate(ErrSystem, err)
+		return nil, NewErrorSystem("io_err", err)
 	}
 
 	if res.StatusCode != http.StatusOK {
 		// TODO: handle errors
-		return nil, errorCreate(ErrUnhandled, errors.New("status code not 200"))
+		return nil, NewError(res.StatusCode, body)
 	}
 
 	data := CodeResponse{}
 	err = json.Unmarshal(body, &data)
 	if err != nil {
-		return nil, errorCreate(ErrSystem, err)
+		return nil, NewErrorSystem("json_err", err)
 	}
+	data.requestTime = requestTime
 
 	return &data, nil
+}
+
+func (cr *CodeResponse) ValidUntil() time.Time {
+	return time.Now().Add(time.Hour * cr.ExpiresIn)
 }
 
 // RefreshResponse contains a token info to access user private data
@@ -126,7 +134,7 @@ func (c *Client) RefreshToken(refreshToken string) (*CodeResponse, error) {
 
 	req, err := http.NewRequest(http.MethodPost, "https://auth.riotgames.com/token", strings.NewReader(formData.Encode()))
 	if err != nil {
-		return nil, errorCreate(ErrSystem, err)
+		return nil, NewErrorSystem("http_err", err)
 	}
 
 	c.addAuthHeader(req)
@@ -134,32 +142,32 @@ func (c *Client) RefreshToken(refreshToken string) (*CodeResponse, error) {
 
 	res, err := client.Do(req)
 	if err != nil {
-		return nil, errorCreate(ErrSystem, err)
+		return nil, NewErrorSystem("http_err", err)
 	}
 	defer res.Body.Close()
 
 	body, err := ioutil.ReadAll(res.Body)
 	if err != nil {
-		return nil, errorCreate(ErrSystem, err)
+		return nil, NewErrorSystem("io_err", err)
 	}
 
 	if res.StatusCode != http.StatusOK {
-		// TODO: handle errors
-		return nil, errorCreate(ErrUnhandled, errors.New("status code not 200"))
+		return nil, NewError(res.StatusCode, body)
 	}
 
 	data := CodeResponse{}
 	err = json.Unmarshal(body, &data)
 	if err != nil {
-		return nil, errorCreate(ErrSystem, err)
+		return nil, NewErrorSystem("json_err", err)
 	}
 
 	return &data, nil
 }
 
 type UserInfoResponse struct {
-	Sub string `json:"sub"`
-	JTI string `json:"cpid"`
+	Sub  string `json:"sub"`
+	JTI  string `json:"jti"`
+	CPID string `json:"cpid,omitempty"`
 }
 
 // GetUserInfo returns user info based on a provided token
@@ -168,7 +176,7 @@ func (c *Client) GetUserInfo(token string) (*UserInfoResponse, error) {
 
 	req, err := http.NewRequest(http.MethodGet, "https://auth.riotgames.com/userinfo", nil)
 	if err != nil {
-		return nil, errorCreate(ErrSystem, err)
+		return nil, NewErrorSystem("http_err", err)
 	}
 
 	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
@@ -176,24 +184,25 @@ func (c *Client) GetUserInfo(token string) (*UserInfoResponse, error) {
 
 	res, err := client.Do(req)
 	if err != nil {
-		return nil, errorCreate(ErrSystem, err)
+		return nil, NewErrorSystem("http_err", err)
 	}
 	defer res.Body.Close()
 
 	body, err := ioutil.ReadAll(res.Body)
 	if err != nil {
-		return nil, errorCreate(ErrSystem, err)
+		return nil, NewErrorSystem("io_err", err)
 	}
 
 	if res.StatusCode != http.StatusOK {
-		// TODO: handle errors
-		return nil, errorCreate(ErrUnhandled, errors.New("status code not 200"))
+		return nil, NewError(res.StatusCode, body)
 	}
+
+	fmt.Println(string(body))
 
 	data := UserInfoResponse{}
 	err = json.Unmarshal(body, &data)
 	if err != nil {
-		return nil, errorCreate(ErrSystem, err)
+		return nil, NewErrorSystem("json_err", err)
 	}
 
 	return &data, nil
@@ -211,7 +220,7 @@ func (c *Client) GetAccount(token string) (*AccountResponse, error) {
 
 	req, err := http.NewRequest(http.MethodGet, "https://europe.api.riotgames.com/riot/account/v1/accounts/me", nil)
 	if err != nil {
-		return nil, errorCreate(ErrSystem, err)
+		return nil, NewErrorSystem("http_err", err)
 	}
 
 	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
@@ -219,24 +228,23 @@ func (c *Client) GetAccount(token string) (*AccountResponse, error) {
 
 	res, err := client.Do(req)
 	if err != nil {
-		return nil, errorCreate(ErrSystem, err)
+		return nil, NewErrorSystem("http_err", err)
 	}
 	defer res.Body.Close()
 
 	body, err := ioutil.ReadAll(res.Body)
 	if err != nil {
-		return nil, errorCreate(ErrSystem, err)
+		return nil, NewErrorSystem("io_err", err)
 	}
 
 	if res.StatusCode != http.StatusOK {
-		// TODO: handle errors
-		return nil, errorCreate(ErrUnhandled, errors.New("status code not 200"))
+		return nil, NewError(res.StatusCode, body)
 	}
 
 	data := AccountResponse{}
 	err = json.Unmarshal(body, &data)
 	if err != nil {
-		return nil, errorCreate(ErrSystem, err)
+		return nil, NewErrorSystem("json_err", err)
 	}
 
 	return &data, nil
