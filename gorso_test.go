@@ -8,16 +8,18 @@ import (
 
 const CLIENT_ID = "lfgroup"
 const REDIRECT = "https://beta.lf.group/auth/riot"
+const SHARD = ShardEU
 const SECRET = ""
 
 func TestGetToken(t *testing.T) {
 	code := ""
 
-	client := Client{
+	client := NewClient(&Params{
 		ID:       CLIENT_ID,
 		Secret:   SECRET,
 		Redirect: REDIRECT,
-	}
+		Shard:    SHARD,
+	})
 
 	response, err := client.GetToken(code)
 	if err != nil {

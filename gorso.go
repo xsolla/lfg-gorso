@@ -2,26 +2,28 @@
 // Available at https://github.com/lf-group/gorso
 //
 // Example:
-//   var rso = gorso.Client{
-//     ID:       "CLIENT_ID",
-//   	 Secret:   "CLIENT_SECRET",
-//   	 Redirect: "REDIRECT_URL",
-//   }
 //
-//   func ExampleAuthUser() {
-//   	 code := "CLIENT_CODE" // code is obtained on a client side
+//	var rso = gorso.NewClient(gorso.Client{
+//		ID:       "CLIENT_ID",
+//		Secret:   "CLIENT_SECRET",
+//		Redirect: "REDIRECT_URL",
+//		Shard: 		gorso.ShardEU,
+//	})
 //
-//   	 data, err := rso.GetToken(code)
-//   	 if err != nil {
-//   	   if errors.Is(err, gorso.ErrSystem) {
-//   		   panic(err)
-//    		}
+//	func ExampleAuthUser() {
+//		 code := "CLIENT_CODE" // code is obtained on a client side
 //
-//   	    return
-//    	}
+//		 data, err := rso.GetToken(code)
+//		 if err != nil {
+//		   if errors.Is(err, gorso.ErrSystem) {
+//			   panic(err)
+//	 		}
 //
-//   	 fmt.Println(data.AccessToken)
-//   }
+//		    return
+//	 	}
+//
+//		 fmt.Println(data.AccessToken)
+//	}
 package gorso
 
 import (
@@ -218,7 +220,8 @@ type AccountResponse struct {
 func (c *Client) GetAccount(token string) (*AccountResponse, error) {
 	client := http.Client{Timeout: c.getTimeout()}
 
-	req, err := http.NewRequest(http.MethodGet, "https://europe.api.riotgames.com/riot/account/v1/accounts/me", nil)
+	endpoint := fmt.Sprint("https://", c.Shard, ".api.riotgames.com/riot/account/v1/accounts/me")
+	req, err := http.NewRequest(http.MethodGet, endpoint, nil)
 	if err != nil {
 		return nil, NewErrorSystem("http_err", err)
 	}

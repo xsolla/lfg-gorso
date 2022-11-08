@@ -18,11 +18,12 @@ import (
 	"github.com/lf-group/gorso"
 )
 
-var rso = gorso.Client{
+var rso = gorso.NewClient(gorso.Client{
 	ID:       "CLIENT_ID",
 	Secret:   "CLIENT_SECRET",
 	Redirect: "REDIRECT_URL",
-}
+	Shard: 		gorso.ShardEU,
+})
 
 func ExampleAuthUser() {
 	code := "CLIENT_CODE" // code is obtained on a client side
