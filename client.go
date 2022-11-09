@@ -37,7 +37,7 @@ func NewClient(params *Params) *Client {
 		Timeout:  params.Timeout,
 	}
 
-	if params.Shard != "" {
+	if params.Shard == "" {
 		client.Shard = ShardEU
 	}
 	if params.Timeout == 0 {
