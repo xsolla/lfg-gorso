@@ -33,7 +33,7 @@ func NewClient(params *Params) *Client {
 		ID:       params.ID,
 		Secret:   params.Secret,
 		Redirect: params.Redirect,
-		Shard:    ShardEU,
+		Shard:    params.Shard,
 		Timeout:  params.Timeout,
 	}
 
